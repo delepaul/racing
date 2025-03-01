@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import os
 from dotenv import load_dotenv
+from datetime import date  # Make sure we properly handle dates
 
 # Load API credentials from .env file
 load_dotenv()
@@ -14,17 +15,28 @@ API_URL = "https://api.theracingapi.com/v1/racecards"
 st.title("Horse Racing Filter Program with Weight in st and lbs")
 
 # Date Picker Widget
-selected_date = st.date_input("Select a Race Date")
+selected_date = st.date_input("Select a Race Date", value=date.today())  # Default to today
 
 # Function to fetch racecards from API for a specific date
-def fetch_racecards_for_date(date):
-    formatted_date = date.strftime("%Y-%m-%d")  # Convert date to YYYY-MM-DD format
+def fetch_racecards_for_date(selected_date):
+    if not isinstance(selected_date, date):  # Ensure selected_date is a valid date object
+        st.error("Invalid date selection. Please choose a valid date.")
+        return None
+
+    formatted_date = selected_date.strftime("%Y-%m-%d")  # Convert date to YYYY-MM-DD format
     url = f"{API_URL}?start_date={formatted_date}&end_date={formatted_date}"
-    
+
     try:
         response = requests.get(url, auth=(API_USERNAME, API_PASSWORD))
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        if not data.get("racecards"):
+            st.warning(f"No racecards found for {formatted_date}. Try a different date.")
+            return None
+
+        return data
+
     except requests.exceptions.RequestException as e:
         st.error(f"Failed to fetch racecards for {formatted_date}. Error: {e}")
         return None
@@ -86,25 +98,25 @@ def filter_horses_last_two(horses):
 
 # Streamlit UI
 if st.button("Fetch Racecards"):
-    formatted_date = selected_date.strftime("%Y-%m-%d")  # Format to YYYY-MM-DD
-    racecards = fetch_racecards_for_date(formatted_date)
+    racecards = fetch_racecards_for_date(selected_date)
 
     if racecards:
         uk_handicap_races = extract_uk_handicap_races(racecards)
-        st.success(f"Successfully fetched racecards for {formatted_date}.")
+        if not uk_handicap_races:
+            st.warning(f"No UK Handicap races found for {selected_date.strftime('%Y-%m-%d')}. Try another date.")
+        else:
+            st.success(f"Successfully fetched racecards for {selected_date.strftime('%Y-%m-%d')}.")
 
-        # Extract and display all horses before filtering
-        all_horses = extract_horses_and_form(uk_handicap_races)
-        all_horses_df = pd.DataFrame(all_horses)
-        all_horses_df.index = range(1, len(all_horses_df) + 1)  # Start indexing from 1
-        st.subheader(f"All Horses from UK Handicap Races (Before Filtering) ({len(all_horses)})")
-        st.dataframe(all_horses_df)
+            # Extract and display all horses before filtering
+            all_horses = extract_horses_and_form(uk_handicap_races)
+            all_horses_df = pd.DataFrame(all_horses)
+            all_horses_df.index = range(1, len(all_horses_df) + 1)  # Start indexing from 1
+            st.subheader(f"All Horses from UK Handicap Races (Before Filtering) ({len(all_horses)})")
+            st.dataframe(all_horses_df)
 
-        # Apply filter and display filtered horses
-        filtered_horses = filter_horses_last_two(all_horses)
-        filtered_horses_df = pd.DataFrame(filtered_horses)
-        filtered_horses_df.index = range(1, len(filtered_horses_df) + 1)  # Start indexing from 1
-        st.subheader("Filtered Horses (1st or 2nd in Last Two Races)")
-        st.dataframe(filtered_horses_df)
-    else:
-        st.error(f"No racecards found for {formatted_date}.")
+            # Apply filter and display filtered horses
+            filtered_horses = filter_horses_last_two(all_horses)
+            filtered_horses_df = pd.DataFrame(filtered_horses)
+            filtered_horses_df.index = range(1, len(filtered_horses_df) + 1)  # Start indexing from 1
+            st.subheader("Filtered Horses (1st or 2nd in Last Two Races)")
+            st.dataframe(filtered_horses_df)
