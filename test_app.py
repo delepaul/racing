@@ -13,13 +13,20 @@ API_URL = "https://api.theracingapi.com/v1/racecards"
 # Streamlit App Title
 st.title("Horse Racing Filter Program with Weight in st and lbs")
 
-# Function to fetch racecards from API
-def fetch_racecards():
-    response = requests.get(API_URL, auth=(API_USERNAME, API_PASSWORD))
-    if response.status_code == 200:
+# Date Picker Widget
+selected_date = st.date_input("Select a Race Date")
+
+# Function to fetch racecards from API for a specific date
+def fetch_racecards_for_date(date):
+    formatted_date = date.strftime("%Y-%m-%d")  # Convert date to YYYY-MM-DD format
+    url = f"{API_URL}?start_date={formatted_date}&end_date={formatted_date}"
+    
+    try:
+        response = requests.get(url, auth=(API_USERNAME, API_PASSWORD))
+        response.raise_for_status()
         return response.json()
-    else:
-        st.error("Failed to fetch racecards. Check API credentials or API availability.")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch racecards for {formatted_date}. Error: {e}")
         return None
 
 # Function to convert lbs to st and lbs
@@ -63,8 +70,8 @@ def extract_horses_and_form(racecards):
 
             horses.append({
                 "Horse": horse_name,
-                "Race Name": race_name,
                 "Race Class": race_class,
+                "Race Name": race_name,
                 "Form (Last 6 Races)": " ".join(map(str, processed_form)),
                 "Last Finish": last_finish,
                 "Second Last Finish": second_last_finish,
@@ -79,11 +86,12 @@ def filter_horses_last_two(horses):
 
 # Streamlit UI
 if st.button("Fetch Racecards"):
-    racecards = fetch_racecards()
+    formatted_date = selected_date.strftime("%Y-%m-%d")  # Format to YYYY-MM-DD
+    racecards = fetch_racecards_for_date(formatted_date)
 
     if racecards:
         uk_handicap_races = extract_uk_handicap_races(racecards)
-        st.success("Successfully fetched racecards.")
+        st.success(f"Successfully fetched racecards for {formatted_date}.")
 
         # Extract and display all horses before filtering
         all_horses = extract_horses_and_form(uk_handicap_races)
@@ -98,3 +106,5 @@ if st.button("Fetch Racecards"):
         filtered_horses_df.index = range(1, len(filtered_horses_df) + 1)  # Start indexing from 1
         st.subheader("Filtered Horses (1st or 2nd in Last Two Races)")
         st.dataframe(filtered_horses_df)
+    else:
+        st.error(f"No racecards found for {formatted_date}.")
