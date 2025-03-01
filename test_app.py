@@ -10,19 +10,27 @@ API_PASSWORD = os.getenv("API_PASSWORD")
 API_URL = "https://api.theracingapi.com/v1/racecards"
 
 # Streamlit App Title
-st.title("Fetch Full Race Day JSON")
+st.title("Horse Racing Filter Program")
 
-# Function to fetch and display raw JSON
-def fetch_race_data():
-    response = requests.get(API_URL, auth=(API_USERNAME, API_PASSWORD))
-    
-    if response.status_code == 200:
-        race_data = response.json()
-        st.write("### Raw JSON Data from API:")
-        st.json(race_data)  # Display JSON in Streamlit
-    else:
-        st.error(f"Failed to fetch race data. Error: {response.status_code} - {response.text}")
+# Date input widget
+selected_date = st.date_input("Select a race date")
 
-# Button to Fetch Race Data
-if st.button("Fetch Race Data"):
-    fetch_race_data()
+# Function to fetch racecards for a specific date
+def fetch_racecards_for_date(date):
+    url = f"{API_URL}?date={date}"  # Corrected API format
+    try:
+        response = requests.get(url, auth=(API_USERNAME, API_PASSWORD))
+        response.raise_for_status()  # Raise error if request fails
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch racecards for {date}. Error: {e}")
+        return None
+
+# Fetch racecards button
+if st.button("Fetch Racecards"):
+    formatted_date = selected_date.strftime("%Y-%m-%d")  # Convert to YYYY-MM-DD
+    racecards = fetch_racecards_for_date(formatted_date)
+
+    if racecards:
+        st.success(f"Successfully fetched racecards for {formatted_date}.")
+        st.json(racecards)  # Display raw JSON for debugging
