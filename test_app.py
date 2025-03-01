@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import os
 from dotenv import load_dotenv
-from datetime import date  # Make sure we properly handle dates
+from datetime import datetime, date  # Ensure correct handling of date formats
 
 # Load API credentials from .env file
 load_dotenv()
@@ -14,12 +14,16 @@ API_URL = "https://api.theracingapi.com/v1/racecards"
 # Streamlit App Title
 st.title("Horse Racing Filter Program with Weight in st and lbs")
 
-# Date Picker Widget
-selected_date = st.date_input("Select a Race Date", value=date.today())  # Default to today
+# Date Picker Widget (Defaults to Today)
+selected_date = st.date_input("Select a Race Date", value=date.today())
+
+# Ensure the selected_date is always in correct format
+if isinstance(selected_date, str):
+    selected_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
 
 # Function to fetch racecards from API for a specific date
 def fetch_racecards_for_date(selected_date):
-    if not isinstance(selected_date, date):  # Ensure selected_date is a valid date object
+    if not isinstance(selected_date, date):
         st.error("Invalid date selection. Please choose a valid date.")
         return None
 
@@ -28,7 +32,7 @@ def fetch_racecards_for_date(selected_date):
 
     try:
         response = requests.get(url, auth=(API_USERNAME, API_PASSWORD))
-        response.raise_for_status()
+        response.raise_for_status()  # This will raise an error for 4xx and 5xx responses
         data = response.json()
 
         if not data.get("racecards"):
