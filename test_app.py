@@ -1,9 +1,3 @@
-ddd
-
-Dele paul<delepaul@hotmail.com>
-​
-You
-​
 import streamlit as st
 import requests
 import pandas as pd
