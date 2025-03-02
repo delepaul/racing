@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import os
 from dotenv import load_dotenv
-import re  # Import regex for proper number extraction
 
 # Load API credentials from .env file
 load_dotenv()
@@ -56,19 +55,15 @@ def extract_horses_and_form(racecards):
             current_weight_lbs = runner.get("lbs", "N/A")
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
-            # Extract full numbers (handling 10, 11, 12, etc. correctly)
-            form_entries = re.findall(r'10|11|12|13|[0-9]|[PUF]', form_string[-6:])
-
             processed_form = []
-            for entry in form_entries:
-                if entry.isdigit():  # Keep numbers as they are
-                    processed_form.append(int(entry))
-                elif entry in ["P", "U", "F"]:  # Convert P/U/F to 10
+            for char in form_string[-6:]:  # Last 6 races
+                if char.isdigit():
+                    processed_form.append(int(char))
+                elif char in ["U", "P", "F"]:  # Unseated, Pulled up, Fell
                     processed_form.append(10)
                 else:
-                    processed_form.append(10)  # Any unknown characters default to 10
+                    processed_form.append(int(char) if char.isdigit() else 10)
 
-            # Ensure at least 3 races exist
             last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
             sum_last_3 = sum(last_3_positions)
             last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
