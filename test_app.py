@@ -2,8 +2,8 @@ import streamlit as st
 import requests
 import pandas as pd
 import os
+import re  # For proper form extraction
 from dotenv import load_dotenv
-import re  # Import regex to properly extract full race positions
 
 # Load API credentials from .env file
 load_dotenv()
@@ -56,20 +56,23 @@ def extract_horses_and_form(racecards):
             current_weight_lbs = runner.get("lbs", "N/A")
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
-            # **Correcting how race form is extracted (Handles 10th place and higher properly)**
+            # **Fix: Extract multi-digit positions correctly**
             processed_form = [int(num) if num.isdigit() else 10 for num in re.findall(r"\d+", form_string)[-6:]]
 
+            # Ensure at least 3 races are available
             last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
-            sum_last_3 = sum(last_3_positions)
-            last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
+            sum_last_3 = sum(last_3_positions) if last_3_positions else 0
+
+            # Fix: Ensure last finish is extracted properly
+            last_finish = processed_form[-1] if processed_form else 10
 
             horses.append({
-                "Horse": f"{horse_name} ({race_class})",  # Display Race Class right after Horse Name
-                "Form (Last 6 Races)": " ".join(map(str, processed_form)),  # Displays correct race form
+                "Horse": f"{horse_name} ({race_class})",  # Show race class after horse name
+                "Form (Last 6 Races)": " ".join(map(str, processed_form)) if processed_form else "N/A",
                 "Last Finish": last_finish,
-                "Sum Last 3 Positions": sum_last_3,  # Corrected and kept in table
+                "Sum Last 3 Positions": sum_last_3,
                 "Current Weight (st and lbs)": current_weight_st_lbs,
-                "Race Name": race_name  # Race Name is placed last
+                "Race Name": race_name  # Race name at the end
             })
     return horses
 
