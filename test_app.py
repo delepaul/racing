@@ -59,20 +59,36 @@ def extract_horses_and_form(racecards):
             processed_form = []
             for char in form_string[-6:]:  # Last 6 races only
                 if char.isdigit():
-                    processed_form.append(int(char))
+                    processed_form.append(int(char))  # Convert numbers normally
                 elif char in ["P", "U", "F"]:  # Pulled up, unseated, fallen
                     processed_form.append(10)
+                elif char == "0":  # Handle finishes of 10th or higher
+                    if len(processed_form) > 0 and processed_form[-1] == 1:
+                        processed_form[-1] = 10  # Convert '10' from '1' + '0'
+                    else:
+                        processed_form.append(0)  # Standalone 0 is ignored
                 else:
                     processed_form.append(10)  # Any unknown values default to 10
 
-            last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
+            # Fix cases where two-digit numbers were split (e.g., '1' and '3' should be '13')
+            fixed_form = []
+            i = 0
+            while i < len(processed_form):
+                if i < len(processed_form) - 1 and processed_form[i] == 1 and processed_form[i+1] >= 0:
+                    fixed_form.append(int(str(processed_form[i]) + str(processed_form[i+1])))  # Merge '1' and '3' into '13'
+                    i += 2  # Skip the next number since it's already merged
+                else:
+                    fixed_form.append(processed_form[i])
+                    i += 1
+
+            last_3_positions = fixed_form[-3:] if len(fixed_form) >= 3 else fixed_form
             sum_last_3 = sum(last_3_positions)
-            last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
+            last_finish = fixed_form[-1] if len(fixed_form) >= 1 else 10
 
             horses.append({
                 "Horse": horse_name,
                 "Race Class": race_class,
-                "Form (Last 6 Races)": " ".join(map(str, processed_form)),
+                "Form (Last 6 Races)": " ".join(map(str, fixed_form)),
                 "Last Finish": last_finish,
                 "Sum Last 3 Positions": sum_last_3,
                 "Current Weight (st and lbs)": current_weight_st_lbs
