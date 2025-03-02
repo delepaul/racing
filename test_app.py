@@ -57,20 +57,23 @@ def extract_horses_and_form(racecards):
 
             processed_form = []
             i = 0
-            while i < len(form_string[-6:]):  # Process last 6 races
-                char = form_string[-6:][i]
+            form_data = form_string[-6:]  # Only last 6 races
 
-                if char.isdigit():  
-                    if i + 1 < len(form_string[-6:]) and form_string[-6:][i + 1].isdigit():  
-                        processed_form.append(int(char + form_string[-6:][i + 1]))  
-                        i += 1  
+            while i < len(form_data):
+                char = form_data[i]
+
+                if char.isdigit():
+                    # Check if the next character is also a digit (for finishes 10 or higher)
+                    if i + 1 < len(form_data) and form_data[i + 1].isdigit():
+                        processed_form.append(int(char + form_data[i + 1]))
+                        i += 1  # Skip next character
                     else:
                         processed_form.append(int(char))
-                elif char in ["U", "P", "F"]:  
+                elif char in ["U", "P", "F"]:  # Handle Unseated, Pulled Up, or Fell
                     processed_form.append(10)
                 else:
-                    processed_form.append(10)  
-                
+                    processed_form.append(10)
+
                 i += 1
 
             last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
@@ -83,7 +86,8 @@ def extract_horses_and_form(racecards):
                 "Form (Last 6 Races)": " ".join(map(str, processed_form)),
                 "Last Finish": last_finish,
                 "Sum Last 3 Positions": sum_last_3,
-                "Current Weight (st and lbs)": current_weight_st_lbs
+                "Current Weight (st and lbs)": current_weight_st_lbs,
+                "Race Name": race_name  # Put Race Name last
             })
     return horses
 
