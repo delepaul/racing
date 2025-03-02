@@ -55,27 +55,7 @@ def extract_horses_and_form(racecards):
             current_weight_lbs = runner.get("lbs", "N/A")
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
-            processed_form = []
-            i = 0
-            form_data = form_string[-6:]  # Only last 6 races
-
-            while i < len(form_data):
-                char = form_data[i]
-
-                if char.isdigit():
-                    # Check if the next character is also a digit (for finishes 10 or higher)
-                    if i + 1 < len(form_data) and form_data[i + 1].isdigit():
-                        processed_form.append(int(char + form_data[i + 1]))
-                        i += 1  # Skip next character
-                    else:
-                        processed_form.append(int(char))
-                elif char in ["U", "P", "F"]:  # Handle Unseated, Pulled Up, or Fell
-                    processed_form.append(10)
-                else:
-                    processed_form.append(10)
-
-                i += 1
-
+            processed_form = [int(char) if char.isdigit() else 10 for char in form_string[-6:]]  # Last 6 races
             last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
             sum_last_3 = sum(last_3_positions)
             last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
