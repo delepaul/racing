@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import os
 from dotenv import load_dotenv
+import re  # Import regex to properly extract full race positions
 
 # Load API credentials from .env file
 load_dotenv()
@@ -55,16 +56,18 @@ def extract_horses_and_form(racecards):
             current_weight_lbs = runner.get("lbs", "N/A")
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
-            processed_form = [int(char) if char.isdigit() else 10 for char in form_string[-6:]]  # Last 6 races
+            # **Correcting how race form is extracted (Handles 10th place and higher properly)**
+            processed_form = [int(num) if num.isdigit() else 10 for num in re.findall(r"\d+", form_string)[-6:]]
+
             last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
             sum_last_3 = sum(last_3_positions)
             last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
 
             horses.append({
                 "Horse": f"{horse_name} ({race_class})",  # Display Race Class right after Horse Name
-                "Form (Last 6 Races)": " ".join(map(str, processed_form)),
+                "Form (Last 6 Races)": " ".join(map(str, processed_form)),  # Displays correct race form
                 "Last Finish": last_finish,
-                "Sum Last 3 Positions": sum_last_3,  # Re-added Sum of Last 3 Races
+                "Sum Last 3 Positions": sum_last_3,  # Corrected and kept in table
                 "Current Weight (st and lbs)": current_weight_st_lbs,
                 "Race Name": race_name  # Race Name is placed last
             })
