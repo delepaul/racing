@@ -56,26 +56,21 @@ def extract_horses_and_form(racecards):
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
             processed_form = [int(char) if char.isdigit() else 10 for char in form_string[-6:]]  # Last 6 races
-            last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
-            sum_last_3 = sum(last_3_positions)
             last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
-            second_last_finish = processed_form[-2] if len(processed_form) >= 2 else 10
 
             horses.append({
                 "Horse": horse_name,
-                "Race Class": race_class,  # Moved "Race Class" next to "Horse"
                 "Race Name": race_name,
+                "Race Class": race_class,
                 "Form (Last 6 Races)": " ".join(map(str, processed_form)),
                 "Last Finish": last_finish,
-                "Second Last Finish": second_last_finish,
-                "Sum Last 3 Positions": sum_last_3,
                 "Current Weight (st and lbs)": current_weight_st_lbs
             })
     return horses
 
-# Function to filter horses that finished 1st or 2nd in last two races
-def filter_horses_last_two(horses):
-    return [horse for horse in horses if horse["Last Finish"] in [1, 2] and horse["Second Last Finish"] in [1, 2]]
+# Function to filter horses that finished 1st or 2nd in their last race
+def filter_horses_last_race(horses):
+    return [horse for horse in horses if horse["Last Finish"] in [1, 2]]
 
 # Streamlit UI
 if st.button("Fetch Racecards"):
@@ -87,20 +82,14 @@ if st.button("Fetch Racecards"):
 
         # Extract and display all horses before filtering
         all_horses = extract_horses_and_form(uk_handicap_races)
-        all_horses_df = pd.DataFrame(all_horses)[
-            ["Horse", "Race Class", "Race Name", "Form (Last 6 Races)", "Last Finish", 
-             "Second Last Finish", "Sum Last 3 Positions", "Current Weight (st and lbs)"]
-        ]
+        all_horses_df = pd.DataFrame(all_horses)
         all_horses_df.index = range(1, len(all_horses_df) + 1)  # Start indexing from 1
         st.subheader(f"All Horses from UK Handicap Races (Before Filtering) ({len(all_horses)})")
         st.dataframe(all_horses_df)
 
         # Apply filter and display filtered horses
-        filtered_horses = filter_horses_last_two(all_horses)
-        filtered_horses_df = pd.DataFrame(filtered_horses)[
-            ["Horse", "Race Class", "Race Name", "Form (Last 6 Races)", "Last Finish", 
-             "Second Last Finish", "Sum Last 3 Positions", "Current Weight (st and lbs)"]
-        ]
+        filtered_horses = filter_horses_last_race(all_horses)
+        filtered_horses_df = pd.DataFrame(filtered_horses)
         filtered_horses_df.index = range(1, len(filtered_horses_df) + 1)  # Start indexing from 1
-        st.subheader("Filtered Horses (1st or 2nd in Last Two Races)")
+        st.subheader("Filtered Horses (1st or 2nd in Last Race)")
         st.dataframe(filtered_horses_df)
