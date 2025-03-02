@@ -59,12 +59,11 @@ def extract_horses_and_form(racecards):
             last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
 
             horses.append({
-                "Horse": horse_name,
-                "Race Name": race_name,
-                "Race Class": race_class,
+                "Horse": f"{horse_name} ({race_class})",  # Display Race Class right after Horse Name
                 "Form (Last 6 Races)": " ".join(map(str, processed_form)),
                 "Last Finish": last_finish,
-                "Current Weight (st and lbs)": current_weight_st_lbs
+                "Current Weight (st and lbs)": current_weight_st_lbs,
+                "Race Name": race_name  # Race Name is placed last
             })
     return horses
 
