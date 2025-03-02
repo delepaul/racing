@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import os
 from dotenv import load_dotenv
+import re  # Import regex for proper number extraction
 
 # Load API credentials from .env file
 load_dotenv()
@@ -55,40 +56,27 @@ def extract_horses_and_form(racecards):
             current_weight_lbs = runner.get("lbs", "N/A")
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
-            # Process last 6 race positions correctly
+            # Extract full numbers (handling 10, 11, 12, etc. correctly)
+            form_entries = re.findall(r'10|11|12|13|[0-9]|[PUF]', form_string[-6:])
+
             processed_form = []
-            for char in form_string[-6:]:  # Last 6 races only
-                if char.isdigit():
-                    processed_form.append(int(char))  # Convert numbers normally
-                elif char in ["P", "U", "F"]:  # Pulled up, unseated, fallen
+            for entry in form_entries:
+                if entry.isdigit():  # Keep numbers as they are
+                    processed_form.append(int(entry))
+                elif entry in ["P", "U", "F"]:  # Convert P/U/F to 10
                     processed_form.append(10)
-                elif char == "0":  # Handle finishes of 10th or higher
-                    if len(processed_form) > 0 and processed_form[-1] == 1:
-                        processed_form[-1] = 10  # Convert '10' from '1' + '0'
-                    else:
-                        processed_form.append(0)  # Standalone 0 is ignored
                 else:
-                    processed_form.append(10)  # Any unknown values default to 10
+                    processed_form.append(10)  # Any unknown characters default to 10
 
-            # Fix cases where two-digit numbers were split (e.g., '1' and '3' should be '13')
-            fixed_form = []
-            i = 0
-            while i < len(processed_form):
-                if i < len(processed_form) - 1 and processed_form[i] == 1 and processed_form[i+1] >= 0:
-                    fixed_form.append(int(str(processed_form[i]) + str(processed_form[i+1])))  # Merge '1' and '3' into '13'
-                    i += 2  # Skip the next number since it's already merged
-                else:
-                    fixed_form.append(processed_form[i])
-                    i += 1
-
-            last_3_positions = fixed_form[-3:] if len(fixed_form) >= 3 else fixed_form
+            # Ensure at least 3 races exist
+            last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
             sum_last_3 = sum(last_3_positions)
-            last_finish = fixed_form[-1] if len(fixed_form) >= 1 else 10
+            last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
 
             horses.append({
                 "Horse": horse_name,
                 "Race Class": race_class,
-                "Form (Last 6 Races)": " ".join(map(str, fixed_form)),
+                "Form (Last 6 Races)": " ".join(map(str, processed_form)),
                 "Last Finish": last_finish,
                 "Sum Last 3 Positions": sum_last_3,
                 "Current Weight (st and lbs)": current_weight_st_lbs
