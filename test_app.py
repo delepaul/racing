@@ -56,12 +56,15 @@ def extract_horses_and_form(racecards):
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
             processed_form = [int(char) if char.isdigit() else 10 for char in form_string[-6:]]  # Last 6 races
+            last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
+            sum_last_3 = sum(last_3_positions)
             last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
 
             horses.append({
                 "Horse": f"{horse_name} ({race_class})",  # Display Race Class right after Horse Name
                 "Form (Last 6 Races)": " ".join(map(str, processed_form)),
                 "Last Finish": last_finish,
+                "Sum Last 3 Positions": sum_last_3,  # Re-added Sum of Last 3 Races
                 "Current Weight (st and lbs)": current_weight_st_lbs,
                 "Race Name": race_name  # Race Name is placed last
             })
