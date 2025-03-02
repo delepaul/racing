@@ -56,13 +56,22 @@ def extract_horses_and_form(racecards):
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
             processed_form = []
-            for char in form_string[-6:]:  # Last 6 races
-                if char.isdigit():
-                    processed_form.append(int(char))
-                elif char in ["U", "P", "F"]:  # Unseated, Pulled up, Fell
+            i = 0
+            while i < len(form_string[-6:]):  # Process last 6 races
+                char = form_string[-6:][i]
+
+                if char.isdigit():  
+                    if i + 1 < len(form_string[-6:]) and form_string[-6:][i + 1].isdigit():  
+                        processed_form.append(int(char + form_string[-6:][i + 1]))  
+                        i += 1  
+                    else:
+                        processed_form.append(int(char))
+                elif char in ["U", "P", "F"]:  
                     processed_form.append(10)
                 else:
-                    processed_form.append(int(char) if char.isdigit() else 10)
+                    processed_form.append(10)  
+                
+                i += 1
 
             last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
             sum_last_3 = sum(last_3_positions)
@@ -93,13 +102,13 @@ if st.button("Fetch Racecards"):
         # Extract and display all horses before filtering
         all_horses = extract_horses_and_form(uk_handicap_races)
         all_horses_df = pd.DataFrame(all_horses)
-        all_horses_df.index = range(1, len(all_horses_df) + 1)  # Start indexing from 1
+        all_horses_df.index = range(1, len(all_horses_df) + 1)
         st.subheader(f"All Horses from UK Handicap Races (Before Filtering) ({len(all_horses)})")
         st.dataframe(all_horses_df)
 
         # Apply filter and display filtered horses
         filtered_horses = filter_horses_last_race(all_horses)
         filtered_horses_df = pd.DataFrame(filtered_horses)
-        filtered_horses_df.index = range(1, len(filtered_horses_df) + 1)  # Start indexing from 1
+        filtered_horses_df.index = range(1, len(filtered_horses_df) + 1)
         st.subheader("Filtered Horses (1st or 2nd in Last Race)")
         st.dataframe(filtered_horses_df)
