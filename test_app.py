@@ -10,17 +10,25 @@ API_USERNAME = os.getenv("API_USERNAME")
 API_PASSWORD = os.getenv("API_PASSWORD")
 API_URL = "https://api.theracingapi.com/v1/racecards"
 
-# Streamlit App Title
-st.title("Horse Racing Filter Program with Weight in st and lbs")
+# Load CSV files without setting an index
+def load_csv(file_path):
+    try:
+        df = pd.read_csv(file_path)
 
-# Function to fetch racecards from API
-def fetch_racecards():
-    response = requests.get(API_URL, auth=(API_USERNAME, API_PASSWORD))
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error("Failed to fetch racecards. Check API credentials or API availability.")
-        return None
+        # Rename "Horse Name" to "Horse" to match the script usage
+        df.rename(columns={"Horse Name": "Horse"}, inplace=True)
+
+        df["Horse"] = df["Horse"].str.lower().str.strip()  # Normalize horse names
+
+        # Convert to dictionary with horse name as key, keeping only the first occurrence
+        return df.groupby("Horse").first().to_dict(orient="index")
+    
+    except Exception as e:
+        st.error(f"Error loading CSV {file_path}: {e}")
+        return {}
+
+# Load total runs data from CSVs
+csv_total_runs = load_csv("all_horses.csv")  # This CSV contains Total Runs
 
 # Function to convert lbs to st and lbs
 def convert_lbs_to_st_lbs(lbs):
@@ -34,15 +42,20 @@ def convert_lbs_to_st_lbs(lbs):
     except ValueError:
         return "N/A"
 
+# Function to fetch racecards from API
+def fetch_racecards():
+    response = requests.get(API_URL, auth=(API_USERNAME, API_PASSWORD))
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Failed to fetch racecards. Check API credentials or API availability.")
+        return None
+
 # Function to filter UK Handicap Races
 def extract_uk_handicap_races(racecards):
-    uk_handicap_races = []
-    for race in racecards.get("racecards", []):
-        if race.get("region", "").upper() == "GB" and "handicap" in race.get("race_name", "").lower():
-            uk_handicap_races.append(race)
-    return uk_handicap_races
+    return [race for race in racecards.get("racecards", []) if race.get("region", "").upper() == "GB" and "handicap" in race.get("race_name", "").lower()]
 
-# Function to extract horses, form data, and converted weight
+# Function to extract horse data
 def extract_horses_and_form(racecards):
     horses = []
     for race in racecards:
@@ -50,7 +63,7 @@ def extract_horses_and_form(racecards):
         race_class = race.get("race_class", "")
 
         for runner in race.get("runners", []):
-            horse_name = runner.get("horse", "Unknown")
+            horse_name = runner.get("horse", "Unknown").lower().strip()
             form_string = runner.get("form", "")
             current_weight_lbs = runner.get("lbs", "N/A")
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
@@ -67,7 +80,7 @@ def extract_horses_and_form(racecards):
                 "Last Finish": last_finish,
                 "Sum Last 3 Positions": sum_last_3,
                 "Current Weight (st and lbs)": current_weight_st_lbs,
-                "Race Name": race_name  # Put Race Name last
+                "Race Name": race_name
             })
     return horses
 
@@ -75,7 +88,20 @@ def extract_horses_and_form(racecards):
 def filter_horses_last_race(horses):
     return [horse for horse in horses if horse["Last Finish"] in [1, 2]]
 
+# Function to add total runs from CSV
+def add_total_runs(horses):
+    for horse in horses:
+        horse_name = horse["Horse"]
+        horse["Total Runs"] = csv_total_runs.get(horse_name, {}).get("Total Runs", "N/A")
+    return horses
+
+# Function to filter horses based on total runs
+def filter_by_total_runs(horses, max_runs):
+    return [horse for horse in horses if isinstance(horse["Total Runs"], (int, float)) and horse["Total Runs"] <= max_runs]
+
 # Streamlit UI
+st.title("Horse Racing Filter Program with Weight in st and lbs")
+
 if st.button("Fetch Racecards"):
     racecards = fetch_racecards()
 
@@ -90,9 +116,24 @@ if st.button("Fetch Racecards"):
         st.subheader(f"All Horses from UK Handicap Races (Before Filtering) ({len(all_horses)})")
         st.dataframe(all_horses_df)
 
-        # Apply filter and display filtered horses
+        # Apply 1st/2nd place filter
         filtered_horses = filter_horses_last_race(all_horses)
+        filtered_horses = add_total_runs(filtered_horses)  # Add total runs info
         filtered_horses_df = pd.DataFrame(filtered_horses)
         filtered_horses_df.index = range(1, len(filtered_horses_df) + 1)
-        st.subheader("Filtered Horses (1st or 2nd in Last Race)")
+        st.subheader(f"Filtered Horses (1st or 2nd in Last Race) ({len(filtered_horses)})")
         st.dataframe(filtered_horses_df)
+
+        # Filter horses with 12 or fewer total runs
+        horses_12_or_less = filter_by_total_runs(filtered_horses, 12)
+        horses_12_or_less_df = pd.DataFrame(horses_12_or_less)
+        horses_12_or_less_df.index = range(1, len(horses_12_or_less_df) + 1)
+        st.subheader(f"Horses with 12 or Fewer Runs ({len(horses_12_or_less)})")
+        st.dataframe(horses_12_or_less_df)
+
+        # Filter horses with 26 or fewer total runs
+        horses_26_or_less = filter_by_total_runs(filtered_horses, 26)
+        horses_26_or_less_df = pd.DataFrame(horses_26_or_less)
+        horses_26_or_less_df.index = range(1, len(horses_26_or_less_df) + 1)
+        st.subheader(f"Horses with 26 or Fewer Runs ({len(horses_26_or_less)})")
+        st.dataframe(horses_26_or_less_df)
