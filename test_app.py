@@ -10,25 +10,22 @@ API_USERNAME = os.getenv("API_USERNAME")
 API_PASSWORD = os.getenv("API_PASSWORD")
 API_URL = "https://api.theracingapi.com/v1/racecards"
 
-# Load CSV files without setting an index
+# Load CSV files correctly
 def load_csv(file_path):
     try:
         df = pd.read_csv(file_path)
+        df.rename(columns={"Horse Name": "Horse"}, inplace=True)  # Ensure correct column naming
 
-        # Rename "Horse Name" to "Horse" to match the script usage
-        df.rename(columns={"Horse Name": "Horse"}, inplace=True)
+        # Normalize horse names: lowercase and remove spaces
+        df["Horse"] = df["Horse"].astype(str).str.lower().str.replace(" ", "").str.strip()
 
-        df["Horse"] = df["Horse"].str.lower().str.strip()  # Normalize horse names
-
-        # Convert to dictionary with horse name as key, keeping only the first occurrence
-        return df.groupby("Horse").first().to_dict(orient="index")
-    
+        return df.set_index("Horse").to_dict(orient="index")  # Use as lookup dictionary
     except Exception as e:
         st.error(f"Error loading CSV {file_path}: {e}")
         return {}
 
-# Load total runs data from CSV
-csv_total_runs = load_csv("all_horses.csv")  
+# Load total runs data
+csv_total_runs = load_csv("all_horses.csv")
 
 # Function to convert lbs to st and lbs
 def convert_lbs_to_st_lbs(lbs):
@@ -55,7 +52,7 @@ def fetch_racecards():
 def extract_uk_handicap_races(racecards):
     return [race for race in racecards.get("racecards", []) if race.get("region", "").upper() == "GB" and "handicap" in race.get("race_name", "").lower()]
 
-# Function to extract horse data and print debug info
+# Function to extract horse data
 def extract_horses_and_form(racecards):
     horses = []
     for race in racecards:
@@ -63,25 +60,18 @@ def extract_horses_and_form(racecards):
         race_class = race.get("race_class", "")
 
         for runner in race.get("runners", []):
-            horse_name_raw = runner.get("horse", "Unknown")  # Original name from API
-            horse_name_processed = horse_name_raw.lower().strip()  # Normalize to match CSV
-            
-            # Debugging - Print horse names for comparison
-            print(f"RAW API Name: '{horse_name_raw}'")
-            print(f"Processed Name: '{horse_name_processed}'")
-            print("-" * 50)  # Separator for readability
-
+            horse_name = runner.get("horse", "").lower().replace(" ", "").strip()  # Normalize horse names
             form_string = runner.get("form", "")
             current_weight_lbs = runner.get("lbs", "N/A")
             current_weight_st_lbs = convert_lbs_to_st_lbs(current_weight_lbs)
 
-            processed_form = [int(char) if char.isdigit() else 10 for char in form_string[-6:]]  # Last 6 races
+            processed_form = [int(char) if char.isdigit() else 10 for char in form_string[-6:]]
             last_3_positions = processed_form[-3:] if len(processed_form) >= 3 else processed_form
             sum_last_3 = sum(last_3_positions)
             last_finish = processed_form[-1] if len(processed_form) >= 1 else 10
 
             horses.append({
-                "Horse": horse_name_processed,
+                "Horse": horse_name,
                 "Race Class": race_class,
                 "Form (Last 6 Races)": " ".join(map(str, processed_form)),
                 "Last Finish": last_finish,
@@ -95,19 +85,28 @@ def extract_horses_and_form(racecards):
 def filter_horses_last_race(horses):
     return [horse for horse in horses if horse["Last Finish"] in [1, 2]]
 
-# Function to add total runs from CSV
+# Function to add total runs from CSV with improved matching
 def add_total_runs(horses):
     for horse in horses:
         horse_name = horse["Horse"]
-        horse["Total Runs"] = csv_total_runs.get(horse_name, {}).get("Total Runs", "N/A")
+        if horse_name in csv_total_runs:
+            horse["Total Runs"] = csv_total_runs[horse_name].get("Total Runs", "N/A")
+        else:
+            # Check for close matches if an exact match isn't found
+            possible_matches = [name for name in csv_total_runs if horse_name in name or name in horse_name]
+            if possible_matches:
+                closest_match = possible_matches[0]  # Pick the first close match
+                horse["Total Runs"] = csv_total_runs[closest_match].get("Total Runs", "N/A")
+            else:
+                horse["Total Runs"] = "N/A"  # No match found at all
     return horses
 
 # Function to filter horses based on total runs
 def filter_by_total_runs(horses, max_runs):
-    return [horse for horse in horses if isinstance(horse["Total Runs"], (int, float)) and horse["Total Runs"] <= max_runs]
+    return [horse for horse in horses if str(horse["Total Runs"]).isdigit() and int(horse["Total Runs"]) <= max_runs]
 
 # Streamlit UI
-st.title("Horse Racing Filter Program with Debugging")
+st.title("Horse Racing Filter Program with Weight in st and lbs")
 
 if st.button("Fetch Racecards"):
     racecards = fetch_racecards()
